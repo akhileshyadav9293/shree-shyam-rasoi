@@ -39,22 +39,14 @@ export default function Customers() {
 
   const handlePrint = (c) => {
     setPrintingCustomer(c);
-    setShareMenu(null);
     setTimeout(() => {
       window.print();
     }, 100);
   };
 
-  // --- Share Bill ---
-  const [shareMenu, setShareMenu] = useState(null); // customer id of open menu
-  const shareRef = useRef(null);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handler = (e) => { if (shareRef.current && !shareRef.current.contains(e.target)) setShareMenu(null); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
+  // --- Share Bill Modal for Single Customer ---
+  const [sharingCustomer, setSharingCustomer] = useState(null);
+  const [directSmsSending, setDirectSmsSending] = useState(false);
 
   const currentMonthName = new Date().toLocaleString('en-IN', { month: 'long', year: 'numeric' });
 
@@ -104,18 +96,19 @@ Thank you! 🙏`
     const cleanPhone = c.phone.replace(/\D/g, '');
     const url = `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(msg)}`;
     window.open(url, '_blank');
-    setShareMenu(null);
   };
 
   const handleDirectSmsBill = async (c) => {
     const remaining = Math.max(0, (Number(c.monthlyPrice) || 0) - (Number(c.advance) || 0));
     const msg = `Shree Shyam Rasoi: Namaste ${c.name} ji, ${currentMonthName} month tiffin bill is Rs.${c.monthlyPrice || 0}. Advance: Rs.${c.advance || 0}, Due: Rs.${remaining}. Kripya payment samay par karein. UPI: 9165360293. Dhanyawaad!`;
-    setShareMenu(null);
+    setDirectSmsSending(true);
     try {
       const res = await apiSendDirectSms(c.phone, msg);
       alert(`✅ ${res.message || 'Direct SMS sent successfully to customer!'}`);
     } catch (err) {
       alert(`❌ Failed to send SMS: ${err.message}\n\nPlease check your Fast2SMS API key in SMS Gateway Settings.`);
+    } finally {
+      setDirectSmsSending(false);
     }
   };
 
@@ -124,7 +117,6 @@ Thank you! 🙏`
     const subject = `Shree Shyam Rasoi - Monthly Bill (${currentMonthName})`;
     const url = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(msg)}`;
     window.open(url, '_blank');
-    setShareMenu(null);
   };
 
   const handleShareSMS = (c) => {
@@ -132,13 +124,11 @@ Thank you! 🙏`
     const phone = c.phone.replace(/\D/g, '');
     const url = `sms:${phone}?body=${encodeURIComponent(msg)}`;
     window.open(url);
-    setShareMenu(null);
   };
 
   const handleCopyBill = (c) => {
     navigator.clipboard.writeText(generateBillMessage(c));
     alert('Bill copied to clipboard!');
-    setShareMenu(null);
   };
 
   // --- Bulk Share All Bills ---
@@ -318,100 +308,64 @@ Thank you! 🙏`
                     const rem = Math.max(0, (Number(c.monthlyPrice) || 0) - (Number(c.advance) || 0));
                     return (
                       <tr key={c.id} className="border-b border-gray-50 dark:border-gray-700/60 hover:bg-primary-50/30 dark:hover:bg-gray-700/40 transition-colors">
-                        <td className="p-4 font-medium text-gray-800 dark:text-gray-100">
-                          <button onClick={() => navigate(`/customers/${c.id}`)} className="hover:text-primary-600 dark:hover:text-primary-400 hover:underline text-left font-semibold transition-colors">
+                        <td className="p-4 font-semibold text-gray-800 dark:text-gray-100 whitespace-nowrap">
+                          <button onClick={() => navigate(`/customers/${c.id}`)} className="hover:text-primary-600 dark:hover:text-primary-400 hover:underline text-left font-bold transition-colors">
                             {c.name}
                           </button>
                         </td>
-                        <td className="p-4">
+                        <td className="p-4 max-w-[220px]">
                           <div className="flex flex-col space-y-1 text-sm text-gray-600 dark:text-gray-300">
-                            <span className="flex items-center"><Phone className="w-3 h-3 mr-2 text-gray-400 dark:text-gray-500" />{c.phone}</span>
-                            <span className="flex items-center"><MapPin className="w-3 h-3 mr-2 text-gray-400 dark:text-gray-500" />{c.address}</span>
+                            <span className="flex items-center font-semibold text-gray-800 dark:text-gray-200 whitespace-nowrap">
+                              <Phone className="w-3.5 h-3.5 mr-1.5 text-gray-400 dark:text-gray-500" />
+                              {c.phone}
+                            </span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed" title={c.address}>
+                              <MapPin className="w-3.5 h-3.5 mr-1 text-gray-400 shrink-0 inline" />
+                              {c.address}
+                            </span>
                           </div>
                         </td>
-                        <td className="p-4">
+                        <td className="p-4 whitespace-nowrap">
                           <div className="flex flex-col space-y-1">
-                            <span className={`capitalize px-3 py-1.5 rounded-md text-xs font-bold w-fit shadow-sm border
+                            <span className={`capitalize px-2.5 py-1 rounded-md text-xs font-bold w-fit shadow-xs border
                           ${c.plan === 'both' ? 'bg-purple-50 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800' :
                                 c.plan === 'lunch' ? 'bg-primary-50 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 border-primary-200 dark:border-primary-800' :
                                   'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'}`}>
                               {c.plan}
                             </span>
-                            <span className="capitalize px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded text-xs font-medium w-fit flex items-center gap-1 shadow-sm">
+                            <span className="capitalize px-2 py-0.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded text-[11px] font-medium w-fit flex items-center gap-1 shadow-xs">
                               <Calendar className="w-3 h-3 text-gray-400 dark:text-gray-500" />
                               {c.serviceType || 'monthly'}
                             </span>
                           </div>
                         </td>
-                        <td className="p-4">
+                        <td className="p-4 whitespace-nowrap">
                           <span className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300">
                             <Utensils className="w-3.5 h-3.5 mr-1 text-gray-400 dark:text-gray-500" /> ₹{c.tiffinRate || '-'}
                           </span>
                         </td>
-                        <td className="p-4 font-semibold text-gray-800 dark:text-gray-100">₹{c.monthlyPrice || '-'}</td>
-                        <td className="p-4 font-medium text-green-600 dark:text-green-400">₹{c.advance || 0}</td>
-                        <td className="p-4">
+                        <td className="p-4 whitespace-nowrap font-bold text-gray-800 dark:text-gray-100">₹{c.monthlyPrice || '-'}</td>
+                        <td className="p-4 whitespace-nowrap font-medium text-green-600 dark:text-green-400">₹{c.advance || 0}</td>
+                        <td className="p-4 whitespace-nowrap">
                           <span className={`font-bold ${rem > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
                             ₹{rem}
                           </span>
                         </td>
-                        <td className="p-4 text-right">
-                          <div className="flex justify-end space-x-1 items-center relative" ref={shareMenu === c.id ? shareRef : null}>
+                        <td className="p-4 text-right whitespace-nowrap">
+                          <div className="flex justify-end space-x-1.5 items-center">
                             {/* Share Bill Button */}
                             <button
-                              onClick={() => setShareMenu(shareMenu === c.id ? null : c.id)}
-                              className="p-2 text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors rounded-lg hover:bg-green-50 dark:hover:bg-green-900/30"
-                              title="Share Bill"
+                              onClick={() => setSharingCustomer(c)}
+                              className="p-2 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors rounded-xl font-medium"
+                              title="Share / Send Bill (WhatsApp & Direct SMS)"
                             >
                               <Share2 className="w-4 h-4" />
                             </button>
 
-                            {/* Share Dropdown */}
-                            {shareMenu === c.id && (
-                              <div className="absolute right-10 top-0 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl w-52 overflow-hidden">
-                                <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-                                  <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Share / Print Bill</p>
-                                  <button onClick={() => setShareMenu(null)} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
-                                    <X className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                                <button onClick={() => handleShareWhatsApp(c)}
-                                  className="w-full flex items-center space-x-3 px-4 py-3 hover:bg-green-50 dark:hover:bg-gray-700 transition-colors text-left">
-                                  <MessageCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200">WhatsApp</span>
-                                </button>
-                                <button onClick={() => handleDirectSmsBill(c)}
-                                  className="w-full flex items-center space-x-3 px-4 py-3 hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors text-left">
-                                  <MessageSquare className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Direct SMS (Fast2SMS)</span>
-                                </button>
-                                <button onClick={() => handleShareEmail(c)}
-                                  className="w-full flex items-center space-x-3 px-4 py-3 hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors text-left">
-                                  <Mail className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Email</span>
-                                </button>
-                                <button onClick={() => handleShareSMS(c)}
-                                  className="w-full flex items-center space-x-3 px-4 py-3 hover:bg-purple-50 dark:hover:bg-gray-700 transition-colors text-left">
-                                  <Phone className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200">SMS / Number</span>
-                                </button>
-                                <button onClick={() => handleCopyBill(c)}
-                                  className="w-full flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left border-t border-gray-100 dark:border-gray-700">
-                                  <Copy className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Copy to Clipboard</span>
-                                </button>
-                                <button onClick={() => handlePrint(c)}
-                                  className="w-full flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left border-t border-gray-100 dark:border-gray-700">
-                                  <Printer className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Print Bill</span>
-                                </button>
-                              </div>
-                            )}
-
-                            <button onClick={() => navigate(`/customers/${c.id}`)} className="p-2 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors rounded-lg hover:bg-primary-50 dark:hover:bg-gray-700">
+                            <button onClick={() => navigate(`/customers/${c.id}`)} className="p-2 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors rounded-xl hover:bg-primary-50 dark:hover:bg-gray-700" title="Edit Customer">
                               <Edit2 className="w-4 h-4" />
                             </button>
-                            <button onClick={() => handleDelete(c.id)} className="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-gray-700">
+                            <button onClick={() => handleDelete(c.id)} className="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors rounded-xl hover:bg-red-50 dark:hover:bg-gray-700" title="Delete Customer">
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
@@ -559,6 +513,98 @@ Thank you! 🙏`
               >
                 Done
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======= SINGLE CUSTOMER SHARE BILL MODAL ======= */}
+      {sharingCustomer && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 no-print">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100 dark:border-gray-700 animate-scale-up">
+            {/* Header */}
+            <div className="p-5 bg-gradient-to-r from-emerald-600 via-teal-600 to-green-600 text-white flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-lg leading-tight">Share / Print Bill</h3>
+                <p className="text-emerald-100 text-xs mt-0.5">{sharingCustomer.name} · {sharingCustomer.phone}</p>
+              </div>
+              <button
+                onClick={() => setSharingCustomer(null)}
+                className="p-1.5 rounded-full bg-black/20 hover:bg-black/30 text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Bill summary preview */}
+            <div className="p-5 space-y-4">
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-2xl p-4 border border-gray-100 dark:border-gray-700 flex justify-between items-center text-sm">
+                <div>
+                  <p className="text-xs text-gray-400 font-medium">{currentMonthName}</p>
+                  <p className="font-bold text-gray-800 dark:text-gray-100 text-base">Bill: ₹{sharingCustomer.monthlyPrice || 0}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-400 font-medium">Due Amount</p>
+                  <p className="font-extrabold text-red-600 dark:text-red-400 text-lg">
+                    ₹{Math.max(0, (Number(sharingCustomer.monthlyPrice) || 0) - (Number(sharingCustomer.advance) || 0))}
+                  </p>
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className="space-y-2">
+                {/* Direct SMS (Fast2SMS) */}
+                <button
+                  onClick={() => { handleDirectSmsBill(sharingCustomer); setSharingCustomer(null); }}
+                  disabled={directSmsSending}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 rounded-xl font-bold text-sm transition-colors border border-blue-200 dark:border-blue-800 active:scale-98"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <MessageSquare className="w-4 h-4 text-blue-600" />
+                    <span>Direct SMS (Bina WhatsApp Khole)</span>
+                  </span>
+                  <span className="text-[11px] font-bold bg-blue-600 text-white px-2 py-0.5 rounded-md">Fast2SMS</span>
+                </button>
+
+                {/* WhatsApp */}
+                <button
+                  onClick={() => { handleShareWhatsApp(sharingCustomer); setSharingCustomer(null); }}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-green-50 dark:bg-green-950/40 hover:bg-green-100 dark:hover:bg-green-900/60 text-green-700 dark:text-green-300 rounded-xl font-bold text-sm transition-colors border border-green-200 dark:border-green-800 active:scale-98"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <MessageCircle className="w-4 h-4 text-green-600" />
+                    <span>WhatsApp Message</span>
+                  </span>
+                  <span className="text-xs font-semibold text-green-600">Open App →</span>
+                </button>
+
+                {/* Native SMS */}
+                <button
+                  onClick={() => { handleShareSMS(sharingCustomer); setSharingCustomer(null); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-semibold transition-colors"
+                >
+                  <Phone className="w-4 h-4 text-purple-500" />
+                  <span>Native Phone SMS App</span>
+                </button>
+
+                {/* Copy Bill */}
+                <button
+                  onClick={() => { handleCopyBill(sharingCustomer); setSharingCustomer(null); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-semibold transition-colors"
+                >
+                  <Copy className="w-4 h-4 text-gray-500" />
+                  <span>Copy Bill to Clipboard</span>
+                </button>
+
+                {/* Print Bill */}
+                <button
+                  onClick={() => { handlePrint(sharingCustomer); setSharingCustomer(null); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-semibold transition-colors border-t border-gray-100 dark:border-gray-700"
+                >
+                  <Printer className="w-4 h-4 text-gray-500" />
+                  <span>Print Bill / PDF Receipt</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
