@@ -187,12 +187,15 @@ export default function Layout() {
 
       {/* Main Content */}
       <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden flex flex-col h-screen w-full relative">
-        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 sm:px-8 py-4 sticky top-0 z-10 flex items-center justify-between no-print">
+        <header
+          className="sticky top-0 z-40 border-b border-gray-200 dark:border-gray-700 px-4 sm:px-8 py-3.5 flex items-center justify-between no-print shadow-xs transition-colors"
+          style={{ backgroundColor: themeMode === 'dark' ? '#1f2937' : '#ffffff' }}
+        >
           <div className="flex items-center gap-3">
             <button onClick={() => setSidebarOpen(true)} className="md:hidden text-gray-500 dark:text-gray-400 p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
               <Menu className="w-6 h-6" />
             </button>
-            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 capitalize">
+            <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 capitalize">
               {location.pathname === '/' ? 'Dashboard' : location.pathname.split('/').filter(Boolean).join(' > ')}
             </h2>
           </div>
