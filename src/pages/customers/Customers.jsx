@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Edit2, Trash2, Phone, MapPin, Utensils, IndianRupee, Share2, MessageCircle, Mail, Copy, X, Search, SlidersHorizontal, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Users, Calendar, Printer } from 'lucide-react';
+import { Plus, Edit2, Trash2, Phone, MapPin, Utensils, IndianRupee, Share2, MessageCircle, Mail, Copy, X, Search, SlidersHorizontal, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Users, Calendar, Printer, MessageSquare, RefreshCw } from 'lucide-react';
 import { deleteCustomer, getCustomers } from '../../lib/store';
+import { apiSendDirectSms } from '../../lib/api';
 import { useCustomers, PAGE_SIZE_OPTIONS } from '../../hooks/useCustomers';
 import PrintableBill from '../../components/PrintableBill';
 
@@ -100,10 +101,22 @@ Thank you! 🙏`
 
   const handleShareWhatsApp = (c) => {
     const msg = generateBillMessage(c);
-    const phone = c.phone.replace(/\D/g, '');
-    const url = `https://wa.me/91${phone}?text=${encodeURIComponent(msg)}`;
+    const cleanPhone = c.phone.replace(/\D/g, '');
+    const url = `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(msg)}`;
     window.open(url, '_blank');
     setShareMenu(null);
+  };
+
+  const handleDirectSmsBill = async (c) => {
+    const remaining = Math.max(0, (Number(c.monthlyPrice) || 0) - (Number(c.advance) || 0));
+    const msg = `Shree Shyam Rasoi: Namaste ${c.name} ji, ${currentMonthName} month tiffin bill is Rs.${c.monthlyPrice || 0}. Advance: Rs.${c.advance || 0}, Due: Rs.${remaining}. Kripya payment samay par karein. UPI: 9165360293. Dhanyawaad!`;
+    setShareMenu(null);
+    try {
+      const res = await apiSendDirectSms(c.phone, msg);
+      alert(`✅ ${res.message || 'Direct SMS sent successfully to customer!'}`);
+    } catch (err) {
+      alert(`❌ Failed to send SMS: ${err.message}\n\nPlease check your Fast2SMS API key in SMS Gateway Settings.`);
+    }
   };
 
   const handleShareEmail = (c) => {
@@ -366,6 +379,11 @@ Thank you! 🙏`
                                   className="w-full flex items-center space-x-3 px-4 py-3 hover:bg-green-50 dark:hover:bg-gray-700 transition-colors text-left">
                                   <MessageCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
                                   <span className="text-sm font-medium text-gray-700 dark:text-gray-200">WhatsApp</span>
+                                </button>
+                                <button onClick={() => handleDirectSmsBill(c)}
+                                  className="w-full flex items-center space-x-3 px-4 py-3 hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors text-left">
+                                  <MessageSquare className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Direct SMS (Fast2SMS)</span>
                                 </button>
                                 <button onClick={() => handleShareEmail(c)}
                                   className="w-full flex items-center space-x-3 px-4 py-3 hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors text-left">

@@ -4,13 +4,15 @@ import {
   ArrowLeft, IndianRupee, RefreshCw, Clock, CreditCard,
   User, Phone, MapPin, Utensils, Calendar, TrendingDown,
   TrendingUp, CheckCircle2, AlertCircle, ReceiptText, CalendarDays,
-  MessageCircle, Share2, Copy, Printer, X, Check, Sparkles
+  MessageCircle, Share2, Copy, Printer, X, Check, Sparkles, MessageSquare
 } from 'lucide-react';
 import {
   getCustomerById, addCustomer, updateCustomer,
   getDeliveriesForMonth, getPaymentsByCustomer
 } from '../../lib/store';
+import { apiSendDirectSms } from '../../lib/api';
 import PrintableBill from '../../components/PrintableBill';
+import SmsSettingsModal from '../../components/SmsSettingsModal';
 
 const EMPTY_FORM = {
   name: '',
@@ -108,6 +110,9 @@ export default function CustomerForm() {
   const [createdCustomer, setCreatedCustomer] = useState(null);
   const [printingCustomer, setPrintingCustomer] = useState(null);
   const [copiedMessage, setCopiedMessage] = useState(false);
+  const [directSmsSending, setDirectSmsSending] = useState(false);
+  const [directSmsStatus, setDirectSmsStatus] = useState(null);
+  const [smsModalOpen, setSmsModalOpen] = useState(false);
 
   // Derived stats for overview
   const [currentMonthTiffins, setCurrentMonthTiffins] = useState(0);
@@ -317,6 +322,23 @@ Dhanyawaad! 🙏`
     navigator.clipboard.writeText(msg);
     setCopiedMessage(true);
     setTimeout(() => setCopiedMessage(false), 2500);
+  };
+
+  const handleDirectSmsSend = async (c) => {
+    setDirectSmsSending(true);
+    setDirectSmsStatus(null);
+    try {
+      const msg = buildWelcomeMessage(c);
+      const res = await apiSendDirectSms(c.phone, msg);
+      setDirectSmsStatus({ success: res.message || 'SMS sent successfully!' });
+    } catch (err) {
+      setDirectSmsStatus({
+        error: err.message,
+        needsConfig: err.message.toLowerCase().includes('not configured') || err.message.includes('needsConfig')
+      });
+    } finally {
+      setDirectSmsSending(false);
+    }
   };
 
   const handlePrintReceipt = (c) => {
@@ -836,13 +858,59 @@ Dhanyawaad! 🙏`
 
               {/* Action Buttons */}
               <div className="space-y-2.5 pt-1">
-                {/* Primary WhatsApp Action */}
+                {/* 1. Direct Background SMS Button (No WhatsApp needed) */}
+                <button
+                  type="button"
+                  onClick={() => handleDirectSmsSend(createdCustomer)}
+                  disabled={directSmsSending}
+                  className="w-full flex items-center justify-center gap-2.5 py-3.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-primary-600 hover:from-blue-700 hover:to-indigo-700 active:scale-98 disabled:opacity-60 text-white rounded-2xl font-bold shadow-lg shadow-blue-600/25 transition-all text-sm cursor-pointer"
+                >
+                  {directSmsSending ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Sending Direct SMS to Mobile...</span>
+                    </>
+                  ) : (
+                    <>
+                      <MessageSquare className="w-5 h-5 text-amber-300" />
+                      <span>Direct SMS (Bina WhatsApp Khole Bhejein)</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Direct SMS Feedback */}
+                {directSmsStatus && directSmsStatus.success && (
+                  <div className="p-3 bg-green-50 dark:bg-green-950/50 border border-green-200 dark:border-green-800 rounded-xl text-green-700 dark:text-green-300 text-xs font-semibold flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-green-600" />
+                    <span>{directSmsStatus.success}</span>
+                  </div>
+                )}
+
+                {directSmsStatus && directSmsStatus.error && (
+                  <div className="p-3 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 text-xs font-semibold space-y-1.5">
+                    <p className="flex items-center gap-1.5">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>{directSmsStatus.error}</span>
+                    </p>
+                    {directSmsStatus.needsConfig && (
+                      <button
+                        type="button"
+                        onClick={() => setSmsModalOpen(true)}
+                        className="text-xs bg-red-600 text-white font-bold px-3 py-1.5 rounded-lg hover:bg-red-700 transition-colors inline-block"
+                      >
+                        Fast2SMS API Key Configure Karein →
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* 2. WhatsApp Welcome & Bill */}
                 <button
                   type="button"
                   onClick={() => handleWhatsAppSend(createdCustomer)}
-                  className="w-full flex items-center justify-center gap-2.5 py-3.5 bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 active:scale-98 text-white rounded-2xl font-bold shadow-lg shadow-green-600/25 transition-all text-sm cursor-pointer"
+                  className="w-full flex items-center justify-center gap-2.5 py-3 bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 active:scale-98 text-white rounded-2xl font-bold shadow-md shadow-green-600/20 transition-all text-sm cursor-pointer"
                 >
-                  <MessageCircle className="w-5 h-5" />
+                  <MessageCircle className="w-4 h-4" />
                   <span>Send WhatsApp Welcome &amp; Bill</span>
                 </button>
 
@@ -863,7 +931,7 @@ Dhanyawaad! 🙏`
                     className="flex items-center justify-center gap-1.5 py-2.5 px-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-semibold transition-colors"
                   >
                     <Phone className="w-4 h-4 text-purple-500" />
-                    <span>Send SMS</span>
+                    <span>Native SMS</span>
                   </button>
 
                   <button

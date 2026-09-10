@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { getCustomers, getPayments, addPayment } from '../../lib/store';
-import { IndianRupee, CheckCircle2, MessageCircle, Phone, Share2 } from 'lucide-react';
+import { apiSendDirectSms } from '../../lib/api';
+import { IndianRupee, CheckCircle2, Phone, MessageCircle, MessageSquare, RefreshCw } from 'lucide-react';
 
 export default function PendingPayments() {
   const [customers, setCustomers] = useState([]);
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [sendingSmsId, setSendingSmsId] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -54,6 +56,22 @@ Dhanyawaad! 🙏`;
     const cleanPhone = (c.phone || '').replace(/\D/g, '');
     const url = `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(msg)}`;
     window.open(url, '_blank');
+  };
+
+  const handleSendDirectSms = async (c) => {
+    const remaining = Math.max(0, (Number(c.monthlyPrice) || 0) - (Number(c.advance) || 0));
+    const currentMonthName = new Date().toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+    const msg = `Shree Shyam Rasoi: Namaste ${c.name} ji, ${currentMonthName} month tiffin bill due amount is Rs.${remaining} (Total: Rs.${c.monthlyPrice || 0}, Advance: Rs.${c.advance || 0}). Kripya payment samay par karein. UPI: 9165360293. Dhanyawaad!`;
+
+    setSendingSmsId(c.id);
+    try {
+      const res = await apiSendDirectSms(c.phone, msg);
+      alert(`✅ ${res.message || 'Direct SMS sent successfully!'}`);
+    } catch (err) {
+      alert(`❌ Failed to send SMS: ${err.message}\n\nPlease check your Fast2SMS API key in SMS Gateway Settings.`);
+    } finally {
+      setSendingSmsId(null);
+    }
   };
 
   // Basic logic to determine if paid this month
@@ -112,19 +130,35 @@ Dhanyawaad! 🙏`;
                       <td className="p-4 text-sm text-gray-600 dark:text-gray-300 capitalize">{c.plan}</td>
                       <td className="p-4 font-black text-red-600 dark:text-red-400 text-base">₹{rem || c.monthlyPrice}</td>
                       <td className="p-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                          {/* Direct SMS Button */}
+                          <button
+                            onClick={() => handleSendDirectSms(c)}
+                            disabled={sendingSmsId === c.id}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 active:scale-95 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
+                            title="Direct SMS (Bina WhatsApp Khole)"
+                          >
+                            {sendingSmsId === c.id ? (
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <MessageSquare className="w-3.5 h-3.5" />
+                            )}
+                            <span>{sendingSmsId === c.id ? 'Sending...' : 'Direct SMS'}</span>
+                          </button>
+
+                          {/* WhatsApp Reminder Button */}
                           <button
                             onClick={() => handleSendReminder(c)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-green-600 hover:bg-green-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
                             title="Send WhatsApp Reminder"
                           >
                             <MessageCircle className="w-3.5 h-3.5" />
-                            <span>Remind on WhatsApp</span>
+                            <span>WhatsApp</span>
                           </button>
 
                           <button 
                             onClick={() => handleMarkPaid(c.id, rem || c.monthlyPrice)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 rounded-xl text-xs font-bold transition-colors border border-emerald-200 dark:border-emerald-800"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 rounded-xl text-xs font-bold transition-colors border border-emerald-200 dark:border-emerald-800"
                           >
                             <IndianRupee className="w-3.5 h-3.5" />
                             <span>Mark Paid</span>

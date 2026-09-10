@@ -1,7 +1,8 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, Users, CheckSquare, IndianRupee, Wallet, FileText, ChevronDown, LogOut, User, Menu, X, Moon, Sun } from 'lucide-react';
+import { Home, Users, CheckSquare, IndianRupee, Wallet, FileText, ChevronDown, LogOut, User, Menu, X, Moon, Sun, MessageSquare } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { getThemeConfig, saveThemeConfig } from '../lib/themeStore';
+import SmsSettingsModal from './SmsSettingsModal';
 
 export default function Layout() {
   const location = useLocation();
@@ -10,6 +11,7 @@ export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [themeMode, setThemeMode] = useState('light');
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [smsModalOpen, setSmsModalOpen] = useState(false);
   const dropdownRef = useRef(null);
   
   const [openSections, setOpenSections] = useState({
@@ -196,6 +198,16 @@ export default function Layout() {
           </div>
 
           <div className="flex items-center space-x-3 sm:space-x-4">
+            {/* SMS Gateway Settings Button */}
+            <button
+              onClick={() => setSmsModalOpen(true)}
+              className="p-2 text-gray-500 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-600 dark:hover:text-blue-400 rounded-xl transition-colors flex items-center gap-1.5 border border-transparent hover:border-blue-200 dark:hover:border-blue-800"
+              title="SMS Settings (Fast2SMS)"
+            >
+              <MessageSquare className="w-5 h-5 text-blue-500" />
+              <span className="hidden lg:inline text-xs font-bold text-blue-600 dark:text-blue-400">SMS Gateway</span>
+            </button>
+
             {/* Theme Toggle Button */}
             <button
               onClick={toggleThemeMode}
@@ -261,6 +273,17 @@ export default function Layout() {
                     <button
                       onClick={() => {
                         setShowProfileMenu(false);
+                        setSmsModalOpen(true);
+                      }}
+                      className="w-full flex items-center space-x-2.5 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                    >
+                      <MessageSquare className="w-4 h-4 text-blue-500" />
+                      <span>SMS Gateway (Fast2SMS)</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setShowProfileMenu(false);
                         if (confirm('Switch profile? You will need to re-enter your PIN.')) {
                           localStorage.removeItem('is_authenticated');
                           sessionStorage.removeItem('is_authenticated');
@@ -301,6 +324,9 @@ export default function Layout() {
           <p>© {new Date().getFullYear()} Shree Shyam Rasoi. All rights reserved.</p>
           <p className="text-xs mt-1 opacity-75">Tiffin Service Management System</p>
         </footer>
+
+        {/* SMS Settings Modal */}
+        <SmsSettingsModal isOpen={smsModalOpen} onClose={() => setSmsModalOpen(false)} />
       </main>
     </div>
   );

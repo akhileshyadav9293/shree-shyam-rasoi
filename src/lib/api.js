@@ -67,3 +67,10 @@ export const apiSetupAuth     = (username, pin) => post('/auth/setup', { usernam
 export const apiLoginAuth     = (pin)           => post('/auth/login', { pin });
 export const apiResetAuth     = ()             => post('/auth/reset', {});
 
+// ─── SMS (Fast2SMS) ───────────────────────────────────────────────────────────
+
+export const apiGetSmsConfig   = ()               => get('/sms/config');
+export const apiSaveSmsConfig  = (apiKey)         => post('/sms/config', { apiKey });
+export const apiSendDirectSms  = (phone, message) => post('/sms/send', { phone, message });
+
+
