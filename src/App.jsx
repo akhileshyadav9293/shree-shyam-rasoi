@@ -22,8 +22,8 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user has already logged in during this session
-    const authStatus = sessionStorage.getItem('is_authenticated');
+    // Check if user has already logged in
+    const authStatus = localStorage.getItem('is_authenticated') || sessionStorage.getItem('is_authenticated');
     if (authStatus === 'true') {
       setIsAuthenticated(true);
     }
@@ -40,6 +40,7 @@ function App() {
 
   const handleLogin = () => {
     setIsAuthenticated(true);
+    localStorage.setItem('is_authenticated', 'true');
     sessionStorage.setItem('is_authenticated', 'true');
   };
 

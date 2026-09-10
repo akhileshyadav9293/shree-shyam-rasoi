@@ -285,7 +285,7 @@ Thank you! 🙏`
               <p className="text-sm">{search || filterStatus !== 'all' || filterPlan !== 'all' ? 'Try clearing filters' : "Click 'Add Customer' to get started"}</p>
             </div>
           ) : (
-            <table className="w-full text-left border-collapse min-w-225">
+            <table className="w-full text-left border-collapse min-w-[850px]">
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-800/80 border-b border-gray-100 dark:border-gray-700 text-gray-600 dark:text-gray-300 text-sm">
                   <SortTh field="name" label="Name" className='whitespace-nowrap' />

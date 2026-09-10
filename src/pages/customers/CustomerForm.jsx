@@ -3,12 +3,14 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, IndianRupee, RefreshCw, Clock, CreditCard,
   User, Phone, MapPin, Utensils, Calendar, TrendingDown,
-  TrendingUp, CheckCircle2, AlertCircle, ReceiptText, CalendarDays
+  TrendingUp, CheckCircle2, AlertCircle, ReceiptText, CalendarDays,
+  MessageCircle, Share2, Copy, Printer, X, Check, Sparkles
 } from 'lucide-react';
 import {
   getCustomerById, addCustomer, updateCustomer,
   getDeliveriesForMonth, getPaymentsByCustomer
 } from '../../lib/store';
+import PrintableBill from '../../components/PrintableBill';
 
 const EMPTY_FORM = {
   name: '',
@@ -100,6 +102,12 @@ export default function CustomerForm() {
   const [isCalculatingSkipped, setIsCalculatingSkipped] = useState(false);
   const [activeTab, setActiveTab] = useState(id ? 'overview' : 'edit');
   const [paymentsHistory, setPaymentsHistory] = useState([]);
+
+  // Modal and messaging state for newly registered customer
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [createdCustomer, setCreatedCustomer] = useState(null);
+  const [printingCustomer, setPrintingCustomer] = useState(null);
+  const [copiedMessage, setCopiedMessage] = useState(false);
 
   // Derived stats for overview
   const [currentMonthTiffins, setCurrentMonthTiffins] = useState(0);
@@ -245,12 +253,91 @@ export default function CustomerForm() {
     }
   };
 
+  const buildWelcomeMessage = (c) => {
+    const shiftText = c.plan === 'lunch' ? 'Lunch Only (Morning)' :
+      c.plan === 'dinner' ? 'Dinner Only (Evening)' : 'Both (Morning & Evening)';
+    const serviceText = c.serviceType === 'weekly' ? 'Weekly' : c.serviceType === 'custom' ? 'Custom' : 'Monthly';
+    const rem = Math.max(0, (Number(c.monthlyPrice) || 0) - (Number(c.advance) || 0));
+
+    return (
+`🍱 *SHREE SHYAM RASOI* — Welcome! 🙏
+
+Namaste *${c.name}* ji,
+Aapka tiffin subscription Shree Shyam Rasoi mein safalta-purvak shuru ho gaya hai.
+
+📋 *Subscription Vivran (Details):*
+• Shift / Plan: ${shiftText}
+• Service Type: ${serviceText}
+• Tiffin Rate: ₹${c.tiffinRate || 0} / tiffin
+• Monthly Bill: ₹${c.monthlyPrice || 0}
+• Advance Jama: ₹${c.advance || 0}
+• Remaining Due: ₹${rem}
+
+📍 Delivery Pata: ${c.address}
+
+Ghar jaisa shuddh, swachh aur paushtik khana! 🍛
+Kisi bhi jaankari ya badlav ke liye sampark karein:
+📞 +91 9165360293
+
+Dhanyawaad! 🙏`
+    );
+  };
+
+  const handleWhatsAppSend = (c) => {
+    const msg = buildWelcomeMessage(c);
+    const cleanPhone = (c.phone || '').replace(/\D/g, '');
+    const url = `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(msg)}`;
+    window.open(url, '_blank');
+  };
+
+  const handleNativeShare = async (c) => {
+    const msg = buildWelcomeMessage(c);
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Shree Shyam Rasoi - Welcome ${c.name}`,
+          text: msg,
+        });
+        return;
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+      }
+    }
+    handleWhatsAppSend(c);
+  };
+
+  const handleSMSSend = (c) => {
+    const msg = buildWelcomeMessage(c);
+    const cleanPhone = (c.phone || '').replace(/\D/g, '');
+    window.open(`sms:${cleanPhone}?body=${encodeURIComponent(msg)}`);
+  };
+
+  const handleCopyMessage = (c) => {
+    const msg = buildWelcomeMessage(c);
+    navigator.clipboard.writeText(msg);
+    setCopiedMessage(true);
+    setTimeout(() => setCopiedMessage(false), 2500);
+  };
+
+  const handlePrintReceipt = (c) => {
+    setPrintingCustomer(c);
+    setTimeout(() => {
+      window.print();
+    }, 150);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const dataToSave = { ...formData, monthlyPrice: finalMonthly, remaining };
-    if (id) await updateCustomer(dataToSave);
-    else await addCustomer(dataToSave);
-    navigate('/customers');
+    if (id) {
+      await updateCustomer(dataToSave);
+      navigate('/customers');
+    } else {
+      const saved = await addCustomer(dataToSave);
+      const custObj = saved || { ...dataToSave, id: Date.now().toString() };
+      setCreatedCustomer(custObj);
+      setShowSuccessModal(true);
+    }
   };
 
   const set = (field) => (e) => setFormData(prev => ({ ...prev, [field]: e.target.value }));
@@ -686,6 +773,135 @@ export default function CustomerForm() {
           )}
         </div>
       )}
+
+      {/* ══════════════════════════════════════════════════════════════
+          SUCCESS POPUP MODAL (After Customer Registration)
+      ══════════════════════════════════════════════════════════════ */}
+      {showSuccessModal && createdCustomer && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 no-print">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100 dark:border-gray-700">
+
+            {/* Header Banner */}
+            <div className="p-6 bg-gradient-to-r from-emerald-600 via-teal-600 to-green-600 text-white relative">
+              <button
+                onClick={() => { setShowSuccessModal(false); navigate('/customers'); }}
+                className="absolute right-4 top-4 p-1.5 rounded-full bg-black/20 hover:bg-black/30 text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center mb-3">
+                <CheckCircle2 className="w-7 h-7 text-white" />
+              </div>
+              <h3 className="text-xl font-black">Customer Added Successfully! 🎉</h3>
+              <p className="text-emerald-100 text-xs mt-1">New subscriber registered in Shree Shyam Rasoi</p>
+            </div>
+
+            {/* Details Card */}
+            <div className="p-6 space-y-4">
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-2xl p-4 border border-gray-100 dark:border-gray-700 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-bold text-gray-900 dark:text-gray-100 text-lg leading-tight">{createdCustomer.name}</h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1">
+                      <Phone className="w-3 h-3" /> {createdCustomer.phone}
+                    </p>
+                  </div>
+                  <span className="capitalize px-3 py-1 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 rounded-full text-xs font-bold border border-emerald-200 dark:border-emerald-800">
+                    {createdCustomer.plan === 'both' ? 'Morning & Evening' : createdCustomer.plan === 'lunch' ? 'Morning Only' : 'Evening Only'}
+                  </span>
+                </div>
+
+                <div className="pt-2 border-t border-gray-200/60 dark:border-gray-600/60 grid grid-cols-3 gap-2 text-center text-xs">
+                  <div className="bg-white dark:bg-gray-800 p-2 rounded-xl">
+                    <span className="text-gray-400 block font-medium">Monthly Bill</span>
+                    <span className="font-bold text-gray-800 dark:text-gray-200 text-sm">₹{createdCustomer.monthlyPrice || 0}</span>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 p-2 rounded-xl">
+                    <span className="text-gray-400 block font-medium">Advance</span>
+                    <span className="font-bold text-green-600 dark:text-green-400 text-sm">₹{createdCustomer.advance || 0}</span>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 p-2 rounded-xl">
+                    <span className="text-gray-400 block font-medium">Due</span>
+                    <span className="font-bold text-red-600 dark:text-red-400 text-sm">₹{createdCustomer.remaining || 0}</span>
+                  </div>
+                </div>
+
+                {createdCustomer.address && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 flex items-start gap-1 pt-1">
+                    <MapPin className="w-3 h-3 text-gray-400 shrink-0 mt-0.5" />
+                    <span className="truncate">{createdCustomer.address}</span>
+                  </p>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-2.5 pt-1">
+                {/* Primary WhatsApp Action */}
+                <button
+                  type="button"
+                  onClick={() => handleWhatsAppSend(createdCustomer)}
+                  className="w-full flex items-center justify-center gap-2.5 py-3.5 bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 active:scale-98 text-white rounded-2xl font-bold shadow-lg shadow-green-600/25 transition-all text-sm cursor-pointer"
+                >
+                  <MessageCircle className="w-5 h-5" />
+                  <span>Send WhatsApp Welcome &amp; Bill</span>
+                </button>
+
+                {/* Secondary Actions Row */}
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleNativeShare(createdCustomer)}
+                    className="flex items-center justify-center gap-1.5 py-2.5 px-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-semibold transition-colors"
+                  >
+                    <Share2 className="w-4 h-4 text-blue-500" />
+                    <span>Share App</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSMSSend(createdCustomer)}
+                    className="flex items-center justify-center gap-1.5 py-2.5 px-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-semibold transition-colors"
+                  >
+                    <Phone className="w-4 h-4 text-purple-500" />
+                    <span>Send SMS</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleCopyMessage(createdCustomer)}
+                    className="flex items-center justify-center gap-1.5 py-2.5 px-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-semibold transition-colors"
+                  >
+                    {copiedMessage ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-500" />}
+                    <span>{copiedMessage ? 'Copied!' : 'Copy Bill'}</span>
+                  </button>
+                </div>
+
+                <div className="flex gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                  <button
+                    type="button"
+                    onClick={() => handlePrintReceipt(createdCustomer)}
+                    className="flex-1 py-2.5 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <Printer className="w-4 h-4 text-gray-500" />
+                    <span>Print Bill Receipt</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowSuccessModal(false); navigate('/customers'); }}
+                    className="flex-1 py-2.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 hover:opacity-90 rounded-xl text-xs font-bold transition-opacity"
+                  >
+                    Done (View Customers)
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Printable Bill for print receipt */}
+      <PrintableBill customer={printingCustomer} />
     </div>
   );
 }

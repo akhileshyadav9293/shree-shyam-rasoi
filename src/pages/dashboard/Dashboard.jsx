@@ -117,8 +117,8 @@ export default function Dashboard() {
         <div className="absolute -bottom-10 left-1/4 w-40 h-40 rounded-full bg-amber-400/15 blur-2xl pointer-events-none animate-pulse" style={{ animationDuration: '4s' }} />
 
         {/* === LAYER 6: Decorative right-side circular frame around food === */}
-        <div className="absolute right-8 top-1/2 -translate-y-1/2 w-44 h-44 rounded-full border-4 border-white/10 hidden md:block pointer-events-none animate-spin-slow" />
-        <div className="absolute right-8 top-1/2 -translate-y-1/2 w-52 h-52 rounded-full border border-white/5 hidden md:block pointer-events-none animate-spin-slow-reverse" />
+        <div className="absolute right-8 top-1/2 -translate-y-1/2 w-44 h-44 rounded-full border-4 border-white/10 hidden xl:block pointer-events-none animate-spin-slow" />
+        <div className="absolute right-8 top-1/2 -translate-y-1/2 w-52 h-52 rounded-full border border-white/5 hidden xl:block pointer-events-none animate-spin-slow-reverse" />
 
         {/* === LAYER 7: Floating "Today's Special" badge === */}
         <div className="absolute top-5 right-6 hidden sm:flex items-center gap-1.5 bg-amber-400/90 backdrop-blur-sm text-amber-900 text-[11px] font-extrabold px-3 py-1 rounded-full shadow-lg uppercase tracking-wider animate-float-badge">
@@ -127,7 +127,7 @@ export default function Dashboard() {
         </div>
 
         {/* === MAIN CONTENT === */}
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6 p-7 sm:p-9 text-white">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6 p-6 sm:p-8 lg:p-9 text-white">
           {/* Left: Text Block */}
           <div className="space-y-3 max-w-lg">
             <div className="inline-flex items-center gap-2">
@@ -139,7 +139,7 @@ export default function Dashboard() {
 
             {/* Headline */}
             <div>
-              <h1 className="text-3xl sm:text-[2.6rem] font-black leading-tight tracking-tight text-white drop-shadow-xl">
+              <h1 className="text-2xl sm:text-3xl lg:text-[2.5rem] font-black leading-tight tracking-tight text-white drop-shadow-xl">
                 Ghar Jaisa Khana,<br/>
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-primary-400">
                   Har Roz Delivery

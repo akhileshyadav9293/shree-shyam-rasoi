@@ -59,3 +59,11 @@ export const apiDeleteExpense  = (id)    => del(`/expenses/${id}`);
 export const apiGetPayments           = ()           => get('/payments');
 export const apiGetPaymentsByCustomer = (customerId) => get(`/payments/customer/${customerId}`);
 export const apiAddPayment            = (data)       => post('/payments', data);
+
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+
+export const apiGetAuthStatus = ()             => get('/auth/status');
+export const apiSetupAuth     = (username, pin) => post('/auth/setup', { username, pin });
+export const apiLoginAuth     = (pin)           => post('/auth/login', { pin });
+export const apiResetAuth     = ()             => post('/auth/reset', {});
+

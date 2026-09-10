@@ -51,6 +51,7 @@ export default function Layout() {
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('is_authenticated');
     sessionStorage.removeItem('is_authenticated');
     window.location.href = '/';
   };
@@ -183,7 +184,7 @@ export default function Layout() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto flex flex-col h-screen w-full relative">
+      <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden flex flex-col h-screen w-full relative">
         <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 sm:px-8 py-4 sticky top-0 z-10 flex items-center justify-between no-print">
           <div className="flex items-center gap-3">
             <button onClick={() => setSidebarOpen(true)} className="md:hidden text-gray-500 dark:text-gray-400 p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
@@ -261,6 +262,7 @@ export default function Layout() {
                       onClick={() => {
                         setShowProfileMenu(false);
                         if (confirm('Switch profile? You will need to re-enter your PIN.')) {
+                          localStorage.removeItem('is_authenticated');
                           sessionStorage.removeItem('is_authenticated');
                           window.location.href = '/';
                         }

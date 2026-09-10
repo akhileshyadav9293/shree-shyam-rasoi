@@ -23,6 +23,7 @@ db.defaults({
   deliveries: [],   // [{ date, customerId, lunch, dinner }]
   expenses:   [],
   payments:   [],
+  settings:   { app_pin: '', app_username: '' },
 }).write();
 
 module.exports = db;
