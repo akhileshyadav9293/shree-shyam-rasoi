@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: shree-shyam-rasoi
+    env: node
+    region: singapore      # India ke sabse paas
+    plan: free
+    buildCommand: npm install && npm run build && cd server && npm install && cd ..
+    startCommand: node server/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
