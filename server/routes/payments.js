@@ -7,9 +7,7 @@ const newId = () => Date.now().toString() + Math.random().toString(36).slice(2, 
 // GET /api/payments
 router.get('/', (req, res) => {
   try {
-    const payments = db.get('payments').value().sort((a, b) =>
-      new Date(b.date) - new Date(a.date)
-    );
+    const payments = db.prepare('SELECT * FROM payments ORDER BY date DESC').all();
     res.json(payments);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -17,10 +15,9 @@ router.get('/', (req, res) => {
 // GET /api/payments/customer/:customerId
 router.get('/customer/:customerId', (req, res) => {
   try {
-    const payments = db.get('payments')
-      .filter({ customerId: req.params.customerId })
-      .value()
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
+    const payments = db.prepare(
+      'SELECT * FROM payments WHERE customerId = ? ORDER BY date DESC'
+    ).all(req.params.customerId);
     res.json(payments);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -36,7 +33,10 @@ router.post('/', (req, res) => {
       description: req.body.description || '',
       createdAt: new Date().toISOString(),
     };
-    db.get('payments').push(payment).write();
+    db.prepare(`
+      INSERT INTO payments (id, customerId, amount, date, description, createdAt)
+      VALUES (@id, @customerId, @amount, @date, @description, @createdAt)
+    `).run(payment);
     res.status(201).json(payment);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

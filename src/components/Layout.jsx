@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, Users, CheckSquare, IndianRupee, Wallet, FileText, ChevronDown, LogOut, User, Menu, X, Moon, Sun, MessageSquare } from 'lucide-react';
+import { Home, Users, CheckSquare, IndianRupee, Wallet, FileText, ChevronDown, ChevronRight, LogOut, User, Menu, X, Moon, Sun, MessageSquare } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { getThemeConfig, saveThemeConfig } from '../lib/themeStore';
 import SmsSettingsModal from './SmsSettingsModal';
@@ -24,9 +24,18 @@ export default function Layout() {
   useEffect(() => {
     const savedName = localStorage.getItem('app_username');
     if (savedName) setUsername(savedName);
-    
+
+    // Sync theme from live DOM first (set synchronously by index.html inline script)
+    // This ensures the icon is correct on first render without waiting for async localforage
+    const domIsDark = document.documentElement.classList.contains('dark');
+    setThemeMode(domIsDark ? 'dark' : 'light');
+
+    // Also load from persistent store in case DOM state isn't set yet
     getThemeConfig().then(config => {
-      setThemeMode(config.mode || 'light');
+      const mode = config.mode || 'light';
+      setThemeMode(mode);
+      if (mode === 'dark') document.documentElement.classList.add('dark');
+      else document.documentElement.classList.remove('dark');
     });
 
     const handleClickOutside = (event) => {
@@ -41,10 +50,13 @@ export default function Layout() {
   const toggleThemeMode = () => {
     const newMode = themeMode === 'light' ? 'dark' : 'light';
     setThemeMode(newMode);
-    
+
     if (newMode === 'dark') document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
-    
+
+    // Write to plain localStorage so the synchronous head script can read it on next load
+    // (localforage uses IndexedDB which isn't readable synchronously)
+    localStorage.setItem('ssr_theme_mode', JSON.stringify({ mode: newMode }));
     saveThemeConfig({ mode: newMode });
   };
 
@@ -111,6 +123,45 @@ export default function Layout() {
       </div>
     );
   };
+
+  // Compute dynamic breadcrumb items based on current route
+  const getBreadcrumbs = () => {
+    if (location.pathname === '/') {
+      return {
+        isHome: true,
+        crumbs: [{ label: 'Dashboard', to: '/', isLast: true }]
+      };
+    }
+
+    const segments = location.pathname.split('/').filter(Boolean);
+    const labelMap = {
+      customers: 'Customers',
+      tiffin: 'Tiffin Management',
+      daily: 'Daily Attendance',
+      monthly: 'Monthly Plan',
+      status: 'Pause / Resume',
+      payments: 'Payments',
+      history: 'Payment History',
+      pending: 'Pending Payments',
+      billing: 'Monthly Billing',
+      expenses: 'Expenses',
+      add: 'Add Expense',
+      reports: 'Reports',
+      'profit-loss': 'Profit & Loss'
+    };
+
+    let accum = '';
+    const crumbs = segments.map((seg, idx) => {
+      accum += `/${seg}`;
+      const isLast = idx === segments.length - 1;
+      const label = labelMap[seg] || (seg.length > 18 ? 'Customer Profile' : seg.charAt(0).toUpperCase() + seg.slice(1));
+      return { label, to: accum, isLast };
+    });
+
+    return { isHome: false, crumbs };
+  };
+
+  const breadcrumb = getBreadcrumbs();
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
@@ -188,61 +239,98 @@ export default function Layout() {
       {/* Main Content */}
       <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden flex flex-col h-screen w-full relative">
         <header
-          className="sticky top-0 z-40 border-b border-gray-200 dark:border-gray-700 px-4 sm:px-8 py-3.5 flex items-center justify-between no-print shadow-xs transition-colors"
-          style={{ backgroundColor: themeMode === 'dark' ? '#1f2937' : '#ffffff' }}
+          className="sticky top-0 z-40 border-b border-gray-200 dark:border-gray-700 px-4 sm:px-8 py-3 flex items-center justify-between no-print shadow-xs transition-colors backdrop-blur-md"
+          style={{ backgroundColor: themeMode === 'dark' ? '#1f2937ee' : '#ffffffee' }}
         >
-          <div className="flex items-center gap-3">
-            <button onClick={() => setSidebarOpen(true)} className="md:hidden text-gray-500 dark:text-gray-400 p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-              <Menu className="w-6 h-6" />
+          {/* Breadcrumb Navigation */}
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <button onClick={() => setSidebarOpen(true)} className="md:hidden text-gray-500 dark:text-gray-400 p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors shrink-0">
+              <Menu className="w-5 h-5" />
             </button>
-            <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 capitalize">
-              {location.pathname === '/' ? 'Dashboard' : location.pathname.split('/').filter(Boolean).join(' > ')}
-            </h2>
+            
+            <nav className="flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-2xl bg-gray-100/80 dark:bg-gray-800/80 border border-gray-200/60 dark:border-gray-700/60 shadow-xs overflow-x-auto no-scrollbar">
+              <Link
+                to="/"
+                className="p-1 rounded-lg text-gray-500 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400 hover:bg-white/80 dark:hover:bg-gray-700/80 transition-all flex items-center shrink-0"
+                title="Dashboard Home"
+              >
+                <Home className="w-4 h-4" />
+              </Link>
+
+              {breadcrumb.isHome ? (
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <ChevronRight className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
+                  <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-extrabold text-xs sm:text-sm shadow-xs border border-gray-200/50 dark:border-gray-600/50">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Dashboard
+                  </span>
+                </div>
+              ) : (
+                breadcrumb.crumbs.map((crumb) => (
+                  <div key={crumb.to} className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                    <ChevronRight className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 shrink-0" />
+                    {crumb.isLast ? (
+                      <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-extrabold text-xs sm:text-sm shadow-xs border border-gray-200/50 dark:border-gray-600/50">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary-500 animate-pulse" />
+                        {crumb.label}
+                      </span>
+                    ) : (
+                      <Link
+                        to={crumb.to}
+                        className="text-xs sm:text-sm font-semibold text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 transition-colors px-1 py-0.5 rounded-lg hover:bg-white/60 dark:hover:bg-gray-700/60"
+                      >
+                        {crumb.label}
+                      </Link>
+                    )}
+                  </div>
+                ))
+              )}
+            </nav>
           </div>
 
-          <div className="flex items-center space-x-3 sm:space-x-4">
+          <div className="flex items-center space-x-2.5 sm:space-x-4 shrink-0">
             {/* SMS Gateway Settings Button */}
             <button
               onClick={() => setSmsModalOpen(true)}
-              className="p-2 text-gray-500 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-600 dark:hover:text-blue-400 rounded-xl transition-colors flex items-center gap-1.5 border border-transparent hover:border-blue-200 dark:hover:border-blue-800"
+              className="p-2 text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-600 dark:hover:text-blue-400 rounded-xl transition-all flex items-center gap-1.5 border border-gray-200/60 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-800 shadow-xs"
               title="SMS Settings (Fast2SMS)"
             >
-              <MessageSquare className="w-5 h-5 text-blue-500" />
-              <span className="hidden lg:inline text-xs font-bold text-blue-600 dark:text-blue-400">SMS Gateway</span>
+              <MessageSquare className="w-4 h-4 text-blue-500" />
+              <span className="hidden md:inline text-xs font-bold text-blue-600 dark:text-blue-400">Fast2SMS</span>
             </button>
 
             {/* Theme Toggle Button */}
             <button
               onClick={toggleThemeMode}
-              className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors flex items-center gap-2 border border-transparent hover:border-gray-200 dark:hover:border-gray-600"
+              className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-all flex items-center gap-2 border border-gray-200/60 dark:border-gray-700 hover:border-gray-300 shadow-xs"
               title={themeMode === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
             >
               {themeMode === 'light' ? (
-                <Moon className="w-5 h-5 text-gray-600" />
+                <Moon className="w-4 h-4 text-gray-600" />
               ) : (
-                <Sun className="w-5 h-5 text-amber-400" />
+                <Sun className="w-4 h-4 text-amber-400" />
               )}
             </button>
 
             {/* User Profile Dropdown */}
-            <div className="relative border-l border-gray-200 dark:border-gray-700 pl-3 sm:pl-4" ref={dropdownRef}>
+            <div className="relative border-l border-gray-200 dark:border-gray-700 pl-2.5 sm:pl-4" ref={dropdownRef}>
               <button
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
-                className="flex items-center space-x-2.5 p-1.5 sm:p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-colors focus:outline-none group"
+                className="flex items-center space-x-2 p-1 sm:p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-all focus:outline-none group border border-transparent hover:border-gray-200 dark:hover:border-gray-700"
               >
-                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-primary-100 dark:bg-primary-900/40 border border-primary-200 dark:border-primary-700 flex items-center justify-center shrink-0 text-primary-600 dark:text-primary-400 shadow-sm font-bold text-base">
-                  {username ? username.charAt(0).toUpperCase() : <User className="w-5 h-5" />}
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-primary-600 to-amber-500 text-white flex items-center justify-center shrink-0 shadow-md font-bold text-sm">
+                  {username ? username.charAt(0).toUpperCase() : <User className="w-4 h-4" />}
                 </div>
                 <div className="text-left hidden sm:block">
-                  <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 leading-tight">{username}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Admin</p>
+                  <p className="text-xs font-bold text-gray-800 dark:text-gray-100 leading-tight">{username}</p>
+                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Online</p>
                 </div>
-                <ChevronDown className={`w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-transform duration-200 ${showProfileMenu ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-3.5 h-3.5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-transform duration-200 ${showProfileMenu ? 'rotate-180' : ''}`} />
               </button>
 
-              {/* Profile Menu Popup */}
+              {/* Profile Menu Popup with attractive smooth animation */}
               {showProfileMenu && (
-                <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 py-2 z-50">
+                <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 py-2 z-50 animate-dropdown">
                   {/* User Info Header */}
                   <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center space-x-3">
                     <div className="w-11 h-11 rounded-full bg-primary-100 dark:bg-primary-900/50 border border-primary-200 dark:border-primary-700 flex items-center justify-center text-primary-600 dark:text-primary-400 font-bold text-lg shadow-sm shrink-0">

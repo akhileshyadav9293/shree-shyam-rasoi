@@ -7,9 +7,9 @@ const newId = () => Date.now().toString() + Math.random().toString(36).slice(2, 
 // GET /api/expenses
 router.get('/', (req, res) => {
   try {
-    const expenses = db.get('expenses').value().sort((a, b) =>
-      new Date(b.date) - new Date(a.date) || new Date(b.createdAt) - new Date(a.createdAt)
-    );
+    const expenses = db.prepare(`
+      SELECT * FROM expenses ORDER BY date DESC, createdAt DESC
+    `).all();
     res.json(expenses);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -25,7 +25,10 @@ router.post('/', (req, res) => {
       date: req.body.date || new Date().toISOString().split('T')[0],
       createdAt: new Date().toISOString(),
     };
-    db.get('expenses').push(expense).write();
+    db.prepare(`
+      INSERT INTO expenses (id, amount, category, description, date, createdAt)
+      VALUES (@id, @amount, @category, @description, @date, @createdAt)
+    `).run(expense);
     res.status(201).json(expense);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -33,9 +36,9 @@ router.post('/', (req, res) => {
 // DELETE /api/expenses/:id
 router.delete('/:id', (req, res) => {
   try {
-    const before = db.get('expenses').value().length;
-    db.get('expenses').remove({ id: req.params.id }).write();
-    if (db.get('expenses').value().length === before) return res.status(404).json({ error: 'Expense not found' });
+    const existing = db.prepare('SELECT id FROM expenses WHERE id = ?').get(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Expense not found' });
+    db.prepare('DELETE FROM expenses WHERE id = ?').run(req.params.id);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

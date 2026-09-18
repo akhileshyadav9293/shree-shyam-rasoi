@@ -4,7 +4,24 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>shree-shyam-rasoi</title>
+    <title>Shree Shyam Rasoi – Tiffin Management</title>
+    <meta name="description" content="Shree Shyam Rasoi – Ghar jaisa khana, har roz delivery. Manage tiffin subscriptions, deliveries and payments effortlessly." />
+    <!-- ⚡ Synchronous dark-mode init: apply class BEFORE React hydrates to avoid flash -->
+    <script>
+      (function () {
+        try {
+          var raw = localStorage.getItem('localforage/ssr_theme/theme_config');
+          if (!raw) {
+            // localforage stores data in IndexedDB; fall back to a plain localStorage key we also write
+            raw = localStorage.getItem('ssr_theme_mode');
+          }
+          var mode = raw ? JSON.parse(raw) : null;
+          var isDark = (mode && (mode.mode === 'dark' || mode === 'dark'));
+          if (isDark) document.documentElement.classList.add('dark');
+          else document.documentElement.classList.remove('dark');
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

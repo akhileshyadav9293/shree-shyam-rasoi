@@ -2,10 +2,24 @@ const express = require('express');
 const router  = express.Router();
 const db      = require('../db/database');
 
+// Helper: get a single setting value
+const getSetting = (key) => {
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
+  return row ? row.value : '';
+};
+
+// Helper: set a single setting value
+const setSetting = (key, value) => {
+  db.prepare(`
+    INSERT INTO settings (key, value) VALUES (?, ?)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value
+  `).run(key, String(value || ''));
+};
+
 // GET /api/auth/status — check if an admin account has been configured
 router.get('/status', (req, res) => {
-  const pin = db.get('settings.app_pin').value();
-  const username = db.get('settings.app_username').value() || 'Admin';
+  const pin      = getSetting('app_pin');
+  const username = getSetting('app_username') || 'Admin';
   res.json({
     isSetup: Boolean(pin && pin.length === 4),
     username: username,
@@ -22,8 +36,8 @@ router.post('/setup', (req, res) => {
     return res.status(400).json({ error: '4-digit PIN is required' });
   }
 
-  db.set('settings.app_username', username.trim()).write();
-  db.set('settings.app_pin', String(pin)).write();
+  setSetting('app_username', username.trim());
+  setSetting('app_pin', String(pin));
 
   res.json({
     success: true,
@@ -35,8 +49,8 @@ router.post('/setup', (req, res) => {
 // POST /api/auth/login — verify PIN
 router.post('/login', (req, res) => {
   const { pin } = req.body;
-  const savedPin = db.get('settings.app_pin').value();
-  const username = db.get('settings.app_username').value() || 'Admin';
+  const savedPin = getSetting('app_pin');
+  const username = getSetting('app_username') || 'Admin';
 
   if (!savedPin) {
     return res.status(400).json({ error: 'Admin account not set up yet', needsSetup: true });
@@ -55,8 +69,8 @@ router.post('/login', (req, res) => {
 
 // POST /api/auth/reset — reset admin credentials
 router.post('/reset', (req, res) => {
-  db.set('settings.app_pin', '').write();
-  db.set('settings.app_username', '').write();
+  setSetting('app_pin', '');
+  setSetting('app_username', '');
   res.json({ success: true, message: 'Admin profile reset successfully' });
 });
 

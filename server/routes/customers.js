@@ -7,7 +7,7 @@ const newId = () => Date.now().toString() + Math.random().toString(36).slice(2, 
 // ─── GET /api/customers/stats ─────────────────────────────────────────────────
 router.get('/stats', (req, res) => {
   try {
-    const all    = db.get('customers').value();
+    const all    = db.prepare('SELECT * FROM customers').all();
     const active = all.filter(c => c.status === 'active');
     const paused = all.filter(c => c.status === 'paused');
     const totalRevenue = active.reduce((s, c) => s + (Number(c.monthlyPrice) || 0), 0);
@@ -27,7 +27,7 @@ router.get('/', (req, res) => {
       page = '1', pageSize = '20',
     } = req.query;
 
-    let data = db.get('customers').value();
+    let data = db.prepare('SELECT * FROM customers').all();
 
     // Filter
     if (search.trim()) {
@@ -67,7 +67,7 @@ router.get('/', (req, res) => {
 // ─── GET /api/customers/:id ───────────────────────────────────────────────────
 router.get('/:id', (req, res) => {
   try {
-    const c = db.get('customers').find({ id: req.params.id }).value();
+    const c = db.prepare('SELECT * FROM customers WHERE id = ?').get(req.params.id);
     if (!c) return res.status(404).json({ error: 'Customer not found' });
     res.json(c);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -95,7 +95,14 @@ router.post('/', (req, res) => {
       createdAt: now,
       updatedAt: now,
     };
-    db.get('customers').push(customer).write();
+    db.prepare(`
+      INSERT INTO customers
+        (id, name, phone, address, plan, serviceType, tiffinRate, monthlyAmount,
+         monthlyPrice, discount, advance, skippedDays, adjustmentAmount, status, createdAt, updatedAt)
+      VALUES
+        (@id, @name, @phone, @address, @plan, @serviceType, @tiffinRate, @monthlyAmount,
+         @monthlyPrice, @discount, @advance, @skippedDays, @adjustmentAmount, @status, @createdAt, @updatedAt)
+    `).run(customer);
     res.status(201).json(customer);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -103,10 +110,17 @@ router.post('/', (req, res) => {
 // ─── PUT /api/customers/:id ───────────────────────────────────────────────────
 router.put('/:id', (req, res) => {
   try {
-    const existing = db.get('customers').find({ id: req.params.id }).value();
+    const existing = db.prepare('SELECT * FROM customers WHERE id = ?').get(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Customer not found' });
     const updated = { ...existing, ...req.body, id: req.params.id, updatedAt: new Date().toISOString() };
-    db.get('customers').find({ id: req.params.id }).assign(updated).write();
+    db.prepare(`
+      UPDATE customers SET
+        name=@name, phone=@phone, address=@address, plan=@plan, serviceType=@serviceType,
+        tiffinRate=@tiffinRate, monthlyAmount=@monthlyAmount, monthlyPrice=@monthlyPrice,
+        discount=@discount, advance=@advance, skippedDays=@skippedDays,
+        adjustmentAmount=@adjustmentAmount, status=@status, updatedAt=@updatedAt
+      WHERE id=@id
+    `).run(updated);
     res.json(updated);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -114,24 +128,24 @@ router.put('/:id', (req, res) => {
 // ─── PATCH /api/customers/:id/toggle-status ───────────────────────────────────
 router.patch('/:id/toggle-status', (req, res) => {
   try {
-    const c = db.get('customers').find({ id: req.params.id }).value();
+    const c = db.prepare('SELECT * FROM customers WHERE id = ?').get(req.params.id);
     if (!c) return res.status(404).json({ error: 'Customer not found' });
     const newStatus = c.status === 'paused' ? 'active' : 'paused';
-    db.get('customers').find({ id: req.params.id }).assign({ status: newStatus, updatedAt: new Date().toISOString() }).write();
-    res.json({ ...c, status: newStatus });
+    const updatedAt = new Date().toISOString();
+    db.prepare('UPDATE customers SET status=?, updatedAt=? WHERE id=?').run(newStatus, updatedAt, req.params.id);
+    res.json({ ...c, status: newStatus, updatedAt });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ─── DELETE /api/customers/:id ────────────────────────────────────────────────
 router.delete('/:id', (req, res) => {
   try {
-    const before = db.get('customers').value().length;
-    db.get('customers').remove({ id: req.params.id }).write();
-    const after = db.get('customers').value().length;
-    if (before === after) return res.status(404).json({ error: 'Customer not found' });
-    // Also clean up related data
-    db.get('deliveries').remove({ customerId: req.params.id }).write();
-    db.get('payments').remove({ customerId: req.params.id }).write();
+    const c = db.prepare('SELECT id FROM customers WHERE id = ?').get(req.params.id);
+    if (!c) return res.status(404).json({ error: 'Customer not found' });
+    // Delete related data first
+    db.prepare('DELETE FROM deliveries WHERE customerId = ?').run(req.params.id);
+    db.prepare('DELETE FROM payments WHERE customerId = ?').run(req.params.id);
+    db.prepare('DELETE FROM customers WHERE id = ?').run(req.params.id);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
